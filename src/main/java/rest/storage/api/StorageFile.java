@@ -1,4 +1,4 @@
-package de.pascalwalter.storage.api;
+package rest.storage.api;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -15,6 +15,8 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
 import javax.ws.rs.core.UriInfo;
 
+import rest.storage.api.exception.FileNotFoundException;
+
 import com.google.appengine.api.blobstore.BlobKey;
 import com.google.appengine.api.blobstore.BlobstoreService;
 import com.google.appengine.api.blobstore.BlobstoreServiceFactory;
@@ -27,7 +29,6 @@ import com.google.appengine.api.files.FileWriteChannel;
 import com.google.appengine.api.files.LockException;
 import com.sun.jersey.core.header.FormDataContentDisposition;
 
-import de.pascalwalter.storage.api.exception.FileNotFoundException;
 
 
 @Path("/file")
