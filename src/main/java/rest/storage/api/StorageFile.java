@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.util.List;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
@@ -16,6 +17,10 @@ import javax.ws.rs.core.StreamingOutput;
 import javax.ws.rs.core.UriInfo;
 
 import rest.storage.api.exception.FileNotFoundException;
+import rest.storage.api.helper.PathHelper;
+import rest.storage.api.helper.StreamHelper;
+import rest.storage.api.model.File;
+import rest.storage.api.repository.FileRepository;
 
 import com.google.appengine.api.blobstore.BlobKey;
 import com.google.appengine.api.blobstore.BlobstoreService;
@@ -33,126 +38,113 @@ import com.sun.jersey.core.header.FormDataContentDisposition;
 
 @Path("/file")
 public class StorageFile {
-	@Context
-    private UriInfo context;
-	
 	// File download *********************************************************
-	/*@GET
-	@Produces(MediaType.TEXT_PLAIN)
-	@Path("/{path: [a-zA-Z0-9_/.]+}")
-	public String downloadFileAsPlain(@PathParam("path") String path) {
-		return "This would return the file: " + path;
-	}
-	*/
 	@GET
 	@Produces({ MediaType.APPLICATION_OCTET_STREAM})
 	@Path("/{path: [a-zA-Z0-9_/.]+}")
 	public Response downloadFile(@PathParam("path") String path) throws java.io.FileNotFoundException, LockException, IOException {
-		DatastoreService ds = DatastoreServiceFactory.getDatastoreService();
-		//BlobstoreService bs = BlobstoreServiceFactory.getBlobstoreService();
+		// IMPORTANT!!! leading / before every Path indicates absolute path
+		path = "/" + path;
 		
-		Query q = new Query("File");
-		q.addFilter("path", Query.FilterOperator.EQUAL, path);
-		
-		PreparedQuery pq = ds.prepare(q);
-		Entity e = pq.asSingleEntity();
-		
-		if(e == null) {
+		File f;
+		try {
+			f = FileRepository.getByPathAndUser(path, "pwalter");
+		} catch (EntityNotFoundException e) {
 			throw new FileNotFoundException();
 		}
 		
 		FileService fs = FileServiceFactory.getFileService();
-		AppEngineFile file = new AppEngineFile((String) e.getProperty("storage-path"));
+		AppEngineFile file = new AppEngineFile((String) f.getStoragePath());
 		FileReadChannel channel = fs.openReadChannel(file, false);
 		
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		byte[] barray = new byte[1024];
-		ByteBuffer bb = ByteBuffer.wrap(barray);
-		int nRead;
-		while ((nRead=channel.read(bb)) != -1) {
-			for (int i=0; i < nRead; i++) {
-				out.write(barray[i]);
-			}
-			bb.clear();
-		}
+		byte[] bytes = StreamHelper.getBytes(channel);
 		
-		byte[] filebytes = out.toByteArray();
-		return Response.ok(filebytes).header("content-disposition","attachment; filename = test.txt").build();
-		
-		/*
-		
-		BlobKey key = new BlobKey((String) e.getProperty("storage-path"));
-		
-		
-		StreamingOutput stream = new StreamingOutput() {
-	        public void write(OutputStream output) throws IOException, WebApplicationException {
-	            try {
-	                wb.write(output);
-	            } catch (Exception e) {
-	                throw new WebApplicationException(e);
-	            }
-	        }
-	    };*/
-		
-		//return new GenericEntity<String>("This would return the file from the API: " + e.getProperty("path") + "<br />Real Path: " + e.getProperty("storage-path")) {};
+		return Response.ok(bytes).header("content-disposition","attachment; filename = " + f.getFilename()).build();
 	}
 	
 	@GET
 	@Produces({ MediaType.APPLICATION_JSON})
-	@Path("/{path: [a-zA-Z0-9_/]+}")
-	public GenericEntity<String> showFiles(@PathParam("path") String path) {
-		return new GenericEntity<String>("This would show a list of files in the folder: " + path) {};
+	@Path("/list/{path: [a-zA-Z0-9_/]*}")
+	public List<File> showFiles(@PathParam("path") String path) {
+		// IMPORTANT!!! leading / before every Path indicates absolute path
+		path = path != null ? "/" + path : "/";
+		
+		return FileRepository.getFilesInFolder(path, "pwalter");
+		//return ;
 	}
 	
 	@GET
 	@Produces({ MediaType.APPLICATION_JSON})
 	@Path("/meta/{path: [a-zA-Z0-9_/.]+}")
-	public GenericEntity<String> showFileMetadata(@PathParam("path") String path) {
-		return new GenericEntity<String>("This would show some file metadata for the file: " + path) {};
+	public File showFileMetadata(@PathParam("path") String path) {
+		// IMPORTANT!!! leading / before every Path indicates absolute path
+		path = "/" + path;
+		
+		File f;
+		try {
+			f = FileRepository.getByPathAndUser(path, "pwalter");
+		} catch (EntityNotFoundException e) {
+			throw new FileNotFoundException();
+		}
+		
+		return f;
 	}
 	
 	@PUT
 	@Path("/{path: [a-zA-Z0-9_/.]+}")
-	public String uploadPutFile(
+	public Response uploadPutFile(
 			@PathParam("path") String path,
 			InputStream upload,
 			@QueryParam("mime-type") String mimetype ) throws IOException {
 		
+		// IMPORTANT!!! leading / before every Path indicates absolute path
+		path = "/" + path;
+		
+		// Resolve mime-type and filename
+		mimetype = mimetype == null || mimetype == "" ? PathHelper.getMimetype(path) : mimetype;
 		
 		FileService fs = FileServiceFactory.getFileService();
-		AppEngineFile file = fs.createNewBlobFile("text/plain");
+		AppEngineFile file = fs.createNewBlobFile(mimetype);
 		
 		boolean lock = true;
 		FileWriteChannel channel = fs.openWriteChannel(file, lock);
 		
-		
-		int read = 0;
-		byte[] bytes = new byte[1024];
-	 
-		while ((read = upload.read(bytes)) != -1) {
-			//out.write(bytes, 0, read);
-			channel.write(ByteBuffer.wrap(bytes));
-		}
+		long length = StreamHelper.writeToChannel(upload, channel);
 		
 		lock = false;
 		channel.closeFinally();
 		
-		// Store to Database
-		DatastoreService ds = DatastoreServiceFactory.getDatastoreService();
-		Entity entity = new Entity("File");
-		entity.setProperty("path", path);
-		entity.setProperty("mime-type", mimetype);
-		entity.setProperty("storage-path", file.getFullPath());
+		// Save Entry to Database
+		File f = new File();
+		f.setFilename(PathHelper.getFilename(path));
+		f.setMimeType(mimetype);
+		f.setPath(path);
+		f.setStoragePath(file.getFullPath());
+		f.setLength(length);
+		f.setOwnerId(4711);
 		
-		Key k = ds.put(entity);
+		Key k = FileRepository.save(f, "pwalter");
 		
-		return "This would upload the file using PUT: " + KeyFactory.keyToString(k);
+		return Response.status(200).build();
 	}
 	
 	@DELETE
 	@Path("/{path: [a-zA-Z0-9_/.]+}")
-	public String deleteFile(@PathParam("path") String path) {
-		// http://stackoverflow.com/questions/3496209/input-and-output-binary-streams-using-jersey
-		return "This would delete the file: " + path;
+	public Response deleteFile(@PathParam("path") String path) {
+		// IMPORTANT!!! leading / before every Path indicates absolute path
+		path = "/" + path;
+		
+		DatastoreService ds = DatastoreServiceFactory.getDatastoreService();
+		Key k = PathHelper.getStorageKey("File", path, "pwalter");
+		
+		try {
+			ds.get(k);
+		} catch (EntityNotFoundException e1) {
+			throw new FileNotFoundException();
+		}
+		
+		ds.delete(k);
+		
+		return Response.status(200).build();
 	}
 }
