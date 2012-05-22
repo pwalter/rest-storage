@@ -3,7 +3,7 @@ package rest.storage.api.model;
 import javax.xml.bind.annotation.*;
 
 @XmlRootElement
-public class File {
+public class File extends StorageNode {
 	private String path;
 	private String mimeType;
 	private String filename;

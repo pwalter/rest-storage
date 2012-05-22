@@ -12,15 +12,19 @@ import com.google.appengine.api.datastore.Key;
 import rest.storage.api.exception.FolderNotFoundException;
 import rest.storage.api.helper.PathHelper;
 import rest.storage.api.model.Folder;
+import rest.storage.api.model.Owner;
 import rest.storage.api.repository.FolderRepository;
 
 @Path("/folder")
-public class StorageFolder {
+public class StorageFolder extends Base {
 	@PUT
-	@Produces({ MediaType.APPLICATION_JSON})
+	@Produces({ MediaType.APPLICATION_JSON })
 	@Path("/{path: [a-zA-Z0-9_/]+}")
 	public Folder createFolder(@PathParam("path") String path) {
 		path = perparePath(path);
+		
+		// Get Current Owner
+		Owner owner = getCurrentOwner();
 		
 		// Save Entry to Database
 		Folder f = new Folder();
@@ -28,19 +32,22 @@ public class StorageFolder {
 		f.setPath(path);
 		f.setOwnerId(4711);
 		
-		Key k = FolderRepository.save(f, "pwalter");
+		Key k = FolderRepository.save(f, owner);
 		
 		return f;
 	}
 	
 	@DELETE
-	@Produces({ MediaType.APPLICATION_JSON})
+	@Produces({ MediaType.APPLICATION_JSON })
 	@Path("/{path: [a-zA-Z0-9_/]+}")
 	public Response deleteFolder(@PathParam("path") String path) {
 		path = perparePath(path);
 		
+		// Get Current Owner
+		Owner owner = getCurrentOwner();
+		
 		DatastoreService ds = DatastoreServiceFactory.getDatastoreService();
-		Key k = PathHelper.getStorageKey("Folder", path, "pwalter");
+		Key k = PathHelper.getStorageKey("Folder", path, owner);
 		
 		try {
 			ds.get(k);
@@ -54,14 +61,17 @@ public class StorageFolder {
 	}
 	
 	@GET
-	@Produces({ MediaType.APPLICATION_JSON})
+	@Produces({ MediaType.APPLICATION_JSON })
 	@Path("/meta/{path: [a-zA-Z0-9_/]+}")
 	public Folder getMetaData(@PathParam("path") String path) {
 		path = perparePath(path);
 		
+		// Get Current Owner
+		Owner owner = getCurrentOwner();
+		
 		Folder f;
 		try {
-			f = FolderRepository.getByPathAndUser(path, "pwalter");
+			f = FolderRepository.getByPathAndUser(path, owner);
 		} catch (EntityNotFoundException e) {
 			throw new FolderNotFoundException();
 		}
@@ -72,11 +82,13 @@ public class StorageFolder {
 	private String perparePath(String path) {
 		// Remove last /
 		if(path.endsWith("/")) {
-			path = path.substring(0, path.length() - 2);
+			path = path.substring(0, path.lastIndexOf("/") - 1);
 		}
 			
 		// IMPORTANT!!! leading / before every Path indicates absolute path
-		path = "/" + path;
+		if(!path.startsWith("/")) {
+			path = "/" + path;
+		}
 		
 		return path;
 	}

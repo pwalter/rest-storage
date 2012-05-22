@@ -1,30 +1,24 @@
 package rest.storage.api;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.ByteBuffer;
 import java.util.List;
 
 import javax.ws.rs.*;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.GenericEntity;
-import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.core.StreamingOutput;
-import javax.ws.rs.core.UriInfo;
-
 import rest.storage.api.exception.FileNotFoundException;
+import rest.storage.api.exception.OwnerNotFoundException;
 import rest.storage.api.helper.PathHelper;
 import rest.storage.api.helper.StreamHelper;
 import rest.storage.api.model.File;
+import rest.storage.api.model.Folder;
+import rest.storage.api.model.Owner;
+import rest.storage.api.model.StorageNode;
 import rest.storage.api.repository.FileRepository;
+import rest.storage.api.repository.FolderRepository;
+import rest.storage.api.repository.OwnerRepository;
 
-import com.google.appengine.api.blobstore.BlobKey;
-import com.google.appengine.api.blobstore.BlobstoreService;
-import com.google.appengine.api.blobstore.BlobstoreServiceFactory;
 import com.google.appengine.api.datastore.*;
 import com.google.appengine.api.files.AppEngineFile;
 import com.google.appengine.api.files.FileReadChannel;
@@ -32,23 +26,24 @@ import com.google.appengine.api.files.FileService;
 import com.google.appengine.api.files.FileServiceFactory;
 import com.google.appengine.api.files.FileWriteChannel;
 import com.google.appengine.api.files.LockException;
-import com.sun.jersey.core.header.FormDataContentDisposition;
 
 
 
 @Path("/file")
-public class StorageFile {
+public class StorageFile extends Base {
 	// File download *********************************************************
 	@GET
-	@Produces({ MediaType.APPLICATION_OCTET_STREAM})
+	@Produces({ MediaType.APPLICATION_OCTET_STREAM })
 	@Path("/{path: [a-zA-Z0-9_/.]+}")
 	public Response downloadFile(@PathParam("path") String path) throws java.io.FileNotFoundException, LockException, IOException {
-		// IMPORTANT!!! leading / before every Path indicates absolute path
-		path = "/" + path;
+		path = preparePath(path);
+		
+		// Get Current Owner
+		Owner owner = getCurrentOwner();
 		
 		File f;
 		try {
-			f = FileRepository.getByPathAndUser(path, "pwalter");
+			f = FileRepository.getByPathAndUser(path, owner);
 		} catch (EntityNotFoundException e) {
 			throw new FileNotFoundException();
 		}
@@ -63,26 +58,29 @@ public class StorageFile {
 	}
 	
 	@GET
-	@Produces({ MediaType.APPLICATION_JSON})
+	@Produces({ MediaType.APPLICATION_JSON })
 	@Path("/list/{path: [a-zA-Z0-9_/]*}")
-	public List<File> showFiles(@PathParam("path") String path) {
-		// IMPORTANT!!! leading / before every Path indicates absolute path
-		path = path != null ? "/" + path : "/";
+	public List<StorageNode> showFiles(@PathParam("path") String path) {
+		path = path != null ? path = preparePath(path) : "/";
 		
-		return FileRepository.getFilesInFolder(path, "pwalter");
-		//return ;
+		// Get Current Owner
+		Owner owner = getCurrentOwner();
+		
+		return FileRepository.getStorageNodesInFolder(path, owner);
 	}
 	
 	@GET
-	@Produces({ MediaType.APPLICATION_JSON})
+	@Produces({ MediaType.APPLICATION_JSON })
 	@Path("/meta/{path: [a-zA-Z0-9_/.]+}")
 	public File showFileMetadata(@PathParam("path") String path) {
-		// IMPORTANT!!! leading / before every Path indicates absolute path
-		path = "/" + path;
+		path = preparePath(path);
+		
+		// Get Current Owner
+		Owner owner = getCurrentOwner();
 		
 		File f;
 		try {
-			f = FileRepository.getByPathAndUser(path, "pwalter");
+			f = FileRepository.getByPathAndUser(path, owner);
 		} catch (EntityNotFoundException e) {
 			throw new FileNotFoundException();
 		}
@@ -92,13 +90,16 @@ public class StorageFile {
 	
 	@PUT
 	@Path("/{path: [a-zA-Z0-9_/.]+}")
+	@Produces({ MediaType.APPLICATION_JSON })
 	public File uploadPutFile(
 			@PathParam("path") String path,
 			InputStream upload,
 			@QueryParam("mime-type") String mimetype ) throws IOException {
 		
-		// IMPORTANT!!! leading / before every Path indicates absolute path
-		path = "/" + path;
+		path = preparePath(path);
+		
+		// Get Current Owner
+		Owner owner = getCurrentOwner();
 		
 		// Resolve mime-type and filename
 		mimetype = mimetype == null || mimetype == "" ? PathHelper.getMimetype(path) : mimetype;
@@ -121,9 +122,19 @@ public class StorageFile {
 		f.setPath(path);
 		f.setStoragePath(file.getFullPath());
 		f.setLength(length);
-		f.setOwnerId(4711);
+		f.setOwnerId(owner.getId());
 		
-		Key k = FileRepository.save(f, "pwalter");
+		Key k = FileRepository.save(f, owner);
+		
+		// Save Folder Entry if it doesn't exist jet
+		if(!FolderRepository.exists(path, owner)) {
+			Folder folder = new Folder();
+			folder.setName(PathHelper.getFoldername(path));
+			folder.setOwnerId(owner.getId());
+			folder.setPath(PathHelper.getFolderpath(path));
+			
+			FolderRepository.save(folder, owner);
+		}
 		
 		return f;
 	}
@@ -131,11 +142,13 @@ public class StorageFile {
 	@DELETE
 	@Path("/{path: [a-zA-Z0-9_/.]+}")
 	public Response deleteFile(@PathParam("path") String path) {
-		// IMPORTANT!!! leading / before every Path indicates absolute path
-		path = "/" + path;
+		path = preparePath(path);
+		
+		// Get Current Owner
+		Owner owner = getCurrentOwner();
 		
 		DatastoreService ds = DatastoreServiceFactory.getDatastoreService();
-		Key k = PathHelper.getStorageKey("File", path, "pwalter");
+		Key k = PathHelper.getStorageKey("File", path, owner);
 		
 		try {
 			ds.get(k);
@@ -146,5 +159,14 @@ public class StorageFile {
 		ds.delete(k);
 		
 		return Response.status(200).build();
+	}
+	
+	private String preparePath(String path) {
+		// IMPORTANT!!! leading / before every Path indicates absolute path
+		if(!path.startsWith("/")) {
+			path = "/" + path;
+		}
+				
+		return path;
 	}
 }

@@ -4,7 +4,7 @@ import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlTransient;
 
 @XmlRootElement
-public class Folder {
+public class Folder extends StorageNode {
 	private String path;
 	private String name;
 	private int ownerId;
