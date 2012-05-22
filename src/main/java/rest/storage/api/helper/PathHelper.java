@@ -29,13 +29,23 @@ public class PathHelper {
 	    return path.substring(sep + 1);
 	}
 	
+	// Foldername ********************
+	public static String getFoldername(String path) {
+		return getFoldername(path, "/");
+	}
+	
+	public static String getFoldername(String path, String folderSeperator) {
+		int sep = path.lastIndexOf(folderSeperator);
+	    return path.substring(sep + 1);
+	}
+	
 	// Mime-Type ********************
 	public static String getMimetype(String path) {
 		MimetypesFileTypeMap mimeTypesMap = new MimetypesFileTypeMap();
 		return mimeTypesMap.getContentType(path);
 	}
 	
-	// Storage Key
+	// Storage Key ********************
 	public static String getStorageKey(String path, String username) {
 		//System.out.println(String.format("Path: %s || Username: %s || SHA1: %s", path, username, HashHelper.getSHA1(path + username)));
 		return HashHelper.getSHA1(path + username);
@@ -45,4 +55,6 @@ public class PathHelper {
 		//System.out.println(String.format("Kind: %s || Path: %s || Username: %s || SHA1: %s", kind, path, username, getStorageKey(path, username)));
 		return KeyFactory.createKey(kind, getStorageKey(path, username));
 	}
+
+	
 }

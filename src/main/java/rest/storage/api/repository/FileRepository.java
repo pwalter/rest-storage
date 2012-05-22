@@ -27,12 +27,13 @@ public class FileRepository {
 	}
 	
 	public static List<File> getFilesInFolder(String path, String user) {
-		Query q = new Query("File");
-		//db.GqlQuery("SELECT * FROM MyModel WHERE prop >= :1 AND prop < :2", "abc", u"abc" + u"\ufffd")
+		
 		DatastoreService ds = DatastoreServiceFactory.getDatastoreService();
-		q.addFilter("path", FilterOperator.GREATER_THAN_OR_EQUAL, "/");
-		q.addFilter("path", FilterOperator.LESS_THAN, "/" + "\ufffd");
-		//q.addFilter("username", FilterOperator.EQUAL, user);
+		
+		Query q = new Query("File");
+		q.addFilter("path", FilterOperator.GREATER_THAN_OR_EQUAL, path);
+		q.addFilter("path", FilterOperator.LESS_THAN, path + "\ufffd");
+		
 		PreparedQuery pq = ds.prepare(q);
 		List<Entity> results = pq.asList(FetchOptions.Builder.withLimit(10));
 		

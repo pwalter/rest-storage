@@ -92,7 +92,7 @@ public class StorageFile {
 	
 	@PUT
 	@Path("/{path: [a-zA-Z0-9_/.]+}")
-	public Response uploadPutFile(
+	public File uploadPutFile(
 			@PathParam("path") String path,
 			InputStream upload,
 			@QueryParam("mime-type") String mimetype ) throws IOException {
@@ -125,7 +125,7 @@ public class StorageFile {
 		
 		Key k = FileRepository.save(f, "pwalter");
 		
-		return Response.status(200).build();
+		return f;
 	}
 	
 	@DELETE
