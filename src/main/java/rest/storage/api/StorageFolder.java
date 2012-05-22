@@ -1,5 +1,7 @@
 package rest.storage.api;
 
+import java.util.List;
+
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -11,8 +13,10 @@ import com.google.appengine.api.datastore.Key;
 
 import rest.storage.api.exception.FolderNotFoundException;
 import rest.storage.api.helper.PathHelper;
+import rest.storage.api.model.File;
 import rest.storage.api.model.Folder;
 import rest.storage.api.model.Owner;
+import rest.storage.api.repository.FileRepository;
 import rest.storage.api.repository.FolderRepository;
 
 @Path("/folder")
@@ -45,6 +49,8 @@ public class StorageFolder extends Base {
 		
 		// Get Current Owner
 		Owner owner = getCurrentOwner();
+		
+		// TODO: Check if there are any Files in this folder and throw FolderNotEmptyException otherwise
 		
 		DatastoreService ds = DatastoreServiceFactory.getDatastoreService();
 		Key k = PathHelper.getStorageKey("Folder", path, owner);

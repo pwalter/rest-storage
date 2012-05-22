@@ -13,8 +13,13 @@ public class Base {
 	static Logger log = LoggerFactory.getLogger(Base.class);
 	
 	public final Owner getCurrentOwner() throws OwnerNotFoundException {
-		Owner owner;
-		try {
+		Owner pwalter = new Owner();
+		pwalter.setId(4711);
+		pwalter.setIdentifier("mail@pascalwalter.de");
+		pwalter.setName("Pascal Walter");
+		
+		Owner owner = pwalter;
+		/*try {
 			// TODO: remote this static Identifier and replace with some context data
 			owner = OwnerRepository.getByIdentifier("mail@pascalwalter.de");
 		} catch (EntityNotFoundException e) {
@@ -27,10 +32,8 @@ public class Base {
 			
 			log.info("Owner created with Identifier " + pwalter.getIdentifier());
 			
-			// TODO: uncomment this line!!!
-			//throw new OwnerNotFoundException();
-			owner = pwalter;
-		}
+			throw new OwnerNotFoundException();
+		}*/
 		
 		return owner;
 	}

@@ -4,9 +4,13 @@ package rest.storage.api.repository;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.appengine.api.datastore.*;
 import com.google.appengine.api.datastore.Query.FilterOperator;
 
+import rest.storage.api.Base;
 import rest.storage.api.helper.PathHelper;
 import rest.storage.api.helper.ReflectionHelper;
 import rest.storage.api.model.File;
@@ -15,6 +19,8 @@ import rest.storage.api.model.Owner;
 import rest.storage.api.model.StorageNode;
 
 public class FileRepository {
+	static Logger log = LoggerFactory.getLogger(FileRepository.class);
+	
 	public static File getByPathAndUser(String path, Owner owner) throws EntityNotFoundException {
 		DatastoreService ds = DatastoreServiceFactory.getDatastoreService();
 		
@@ -33,25 +39,12 @@ public class FileRepository {
 		
 		DatastoreService ds = DatastoreServiceFactory.getDatastoreService();
 		
-		ArrayList<StorageNode> objects = new ArrayList<StorageNode>();
+		ArrayList<StorageNode> nodes = new ArrayList<StorageNode>();
+		
+		String folderPath = PathHelper.getFolderpath(path);
 		
 		// Read folders
-		Query q2 = new Query("Folder");
-		q2.addFilter("path", FilterOperator.GREATER_THAN_OR_EQUAL, path);
-		q2.addFilter("path", FilterOperator.LESS_THAN, path + "\ufffd");
-		q2.addFilter("ownerId", FilterOperator.EQUAL, owner.getId());
-		
-		PreparedQuery pq2 = ds.prepare(q2);
-		List<Entity> results2 = pq2.asList(FetchOptions.Builder.withLimit(99999));
-		for(Entity e : results2) {
-			Folder f = new Folder();
-			ReflectionHelper.setPropertiesFromEntity(Folder.class, f, e);
-			
-			objects.add(f);
-		}
-		
-		// Read files
-		Query q = new Query("File");
+		Query q = new Query("Folder");
 		q.addFilter("path", FilterOperator.GREATER_THAN_OR_EQUAL, path);
 		q.addFilter("path", FilterOperator.LESS_THAN, path + "\ufffd");
 		q.addFilter("ownerId", FilterOperator.EQUAL, owner.getId());
@@ -59,13 +52,35 @@ public class FileRepository {
 		PreparedQuery pq = ds.prepare(q);
 		List<Entity> results = pq.asList(FetchOptions.Builder.withLimit(99999));
 		for(Entity e : results) {
+			Folder f = new Folder();
+			ReflectionHelper.setPropertiesFromEntity(Folder.class, f, e);
+			
+			log.debug("Folder compare: {} =?= {}", PathHelper.getFolderpath(f.getPath()), folderPath);
+			if(PathHelper.getFolderpath(f.getPath()).equals(folderPath)) {
+				nodes.add(f);
+			}
+		}
+		
+		// Read files
+		Query q2 = new Query("File");
+		q2.addFilter("path", FilterOperator.GREATER_THAN_OR_EQUAL, path);
+		q2.addFilter("path", FilterOperator.LESS_THAN, path + "\ufffd");
+		q2.addFilter("ownerId", FilterOperator.EQUAL, owner.getId());
+		
+		PreparedQuery pq2 = ds.prepare(q);
+		List<Entity> results2 = pq2.asList(FetchOptions.Builder.withLimit(99999));
+		for(Entity e : results2) {
 			File f = new File();
 			ReflectionHelper.setPropertiesFromEntity(File.class, f, e);
 			
-			objects.add(f);
+			log.debug("File compare: {} =?= {}", PathHelper.getFolderpath(f.getPath()), folderPath);
+			if(PathHelper.getFolderpath(f.getPath()).equals(folderPath)) {
+				
+				nodes.add(f);
+			}
 		}
 		
-		return objects;
+		return nodes;
 	}
 	
 	public static void delete(String path, Owner owner) {

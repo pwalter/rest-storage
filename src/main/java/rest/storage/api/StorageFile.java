@@ -59,18 +59,6 @@ public class StorageFile extends Base {
 	
 	@GET
 	@Produces({ MediaType.APPLICATION_JSON })
-	@Path("/list/{path: [a-zA-Z0-9_/]*}")
-	public List<StorageNode> showFiles(@PathParam("path") String path) {
-		path = path != null ? path = preparePath(path) : "/";
-		
-		// Get Current Owner
-		Owner owner = getCurrentOwner();
-		
-		return FileRepository.getStorageNodesInFolder(path, owner);
-	}
-	
-	@GET
-	@Produces({ MediaType.APPLICATION_JSON })
 	@Path("/meta/{path: [a-zA-Z0-9_/.]+}")
 	public File showFileMetadata(@PathParam("path") String path) {
 		path = preparePath(path);

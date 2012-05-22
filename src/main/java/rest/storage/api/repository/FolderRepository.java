@@ -1,5 +1,8 @@
 package rest.storage.api.repository;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import rest.storage.api.helper.PathHelper;
 import rest.storage.api.helper.ReflectionHelper;
 import rest.storage.api.model.File;
@@ -10,7 +13,11 @@ import com.google.appengine.api.datastore.DatastoreService;
 import com.google.appengine.api.datastore.DatastoreServiceFactory;
 import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.EntityNotFoundException;
+import com.google.appengine.api.datastore.FetchOptions;
 import com.google.appengine.api.datastore.Key;
+import com.google.appengine.api.datastore.PreparedQuery;
+import com.google.appengine.api.datastore.Query;
+import com.google.appengine.api.datastore.Query.FilterOperator;
 
 public class FolderRepository {
 	public static void delete(String path, Owner owner) {
@@ -54,5 +61,15 @@ public class FolderRepository {
 		}
 		
 		return true;
+	}
+
+	public static List<Folder> getFoldersInFolder(String path, Owner owner) {
+		DatastoreService ds = DatastoreServiceFactory.getDatastoreService();
+		
+		ArrayList<Folder> folders = new ArrayList<Folder>();
+		
+		// TODO: implement!
+		
+		return folders;
 	}
 }
