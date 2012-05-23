@@ -4,7 +4,17 @@
     xmlns:web="http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
     xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
     version="2.5">
-    
+    <!-- <filter>
+        <filter-name>OAuthFilter</filter-name>
+        <filter-class>
+            rest.storage.api.security.OAuthFilter
+        </filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>OAuthFilter</filter-name>
+        <url-pattern>/api/*</url-pattern>
+    </filter-mapping>
+     -->
     <servlet>
         <servlet-name>Jersey Web Application</servlet-name>
         <servlet-class>com.sun.jersey.spi.container.servlet.ServletContainer</servlet-class>

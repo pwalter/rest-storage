@@ -6,6 +6,7 @@
 
     <system-properties>
         <property name="java.util.logging.config.file" value="WEB-INF/classes/logging.properties"/>
+        <property name="com.sun.xml.bind.v2.bytecode.ClassTailor.noOptimize" value="true" />
     </system-properties>
 
     <sessions-enabled>true</sessions-enabled>

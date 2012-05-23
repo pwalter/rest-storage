@@ -33,7 +33,7 @@ import com.google.appengine.api.files.LockException;
 public class StorageFile extends Base {
 	// File download *********************************************************
 	@GET
-	@Produces({ MediaType.APPLICATION_OCTET_STREAM })
+	//@Produces({ MediaType.APPLICATION_OCTET_STREAM })
 	@Path("/{path: [a-zA-Z0-9_/.]+}")
 	public Response downloadFile(@PathParam("path") String path) throws java.io.FileNotFoundException, LockException, IOException {
 		path = preparePath(path);

@@ -1,3 +1,4 @@
 curl -i --upload-file test.txt http://localhost:4711/api/file/test.txt
+curl -i --upload-file test.txt https://rest-storage.appspot.com/api/file/test.txt
 
-curl -i http://localhost:4711/api/file/test.txt
+curl -i http://localhost:8888/api/file/test.txt
